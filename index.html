@@ -1,0 +1,2014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clients With No Billing | FOCUS EHR Analytics</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #007acc;
+            --primary-dark: #005fa3;
+            --primary-light: #3498db;
+            --success: #27ae60;
+            --warning: #f39c12;
+            --danger: #e74c3c;
+            --dark: #2c3e50;
+            --light: #ecf0f1;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --card-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            --hover-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            position: relative;
+            overflow-x: hidden;
+        }
+
+        /* Animated background */
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                radial-gradient(circle at 20% 50%, rgba(102, 126, 234, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 80%, rgba(118, 75, 162, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 40% 20%, rgba(52, 152, 219, 0.1) 0%, transparent 50%);
+            animation: backgroundShift 20s ease infinite;
+            z-index: -1;
+        }
+
+        @keyframes backgroundShift {
+            0%, 100% { transform: translate(0, 0) rotate(0deg); }
+            33% { transform: translate(-20px, -20px) rotate(120deg); }
+            66% { transform: translate(20px, -10px) rotate(240deg); }
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header */
+        .header {
+            background: var(--bg-gradient);
+            color: white;
+            padding: 30px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: var(--card-shadow);
+            position: relative;
+            overflow: hidden;
+            animation: slideDown 0.6s ease;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: rotate 30s linear infinite;
+        }
+
+        @keyframes rotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            position: relative;
+            z-index: 1;
+        }
+
+        .version-badge {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 0.85em;
+            opacity: 0.9;
+            z-index: 2;
+            background: rgba(255,255,255,0.2);
+            padding: 5px 12px;
+            border-radius: 20px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+            background: white;
+            padding: 10px;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            animation: fadeIn 0.8s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .tab-btn {
+            padding: 12px 24px;
+            background: transparent;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            color: var(--dark);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            border-bottom: 3px solid transparent;
+        }
+
+        .tab-btn:hover {
+            background: rgba(102, 126, 234, 0.05);
+            color: var(--primary);
+        }
+
+        .tab-btn.active {
+            background: rgba(102, 126, 234, 0.1);
+            color: var(--primary);
+            border-bottom: 3px solid var(--primary);
+            font-weight: 700;
+        }
+
+        .tab-content {
+            display: none;
+            animation: tabFade 0.5s ease;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        @keyframes tabFade {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Controls Panel */
+        .controls {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            align-items: center;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .controls:hover {
+            box-shadow: var(--hover-shadow);
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .control-group label {
+            font-weight: 600;
+            color: var(--dark);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .file-input-wrapper {
+            position: relative;
+            overflow: hidden;
+            display: inline-block;
+        }
+
+        .file-input-wrapper input[type="file"] {
+            position: absolute;
+            left: -9999px;
+        }
+
+        .file-input-label {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
+            color: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 122, 204, 0.3);
+        }
+
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 122, 204, 0.4);
+        }
+
+        .download-link {
+            color: var(--primary);
+            text-decoration: none;
+            font-size: 0.85em;
+            transition: all 0.3s ease;
+            display: inline-block;
+            margin-top: 5px;
+        }
+
+        .download-link:hover {
+            color: var(--primary-dark);
+            transform: translateX(3px);
+            text-decoration: underline;
+        }
+
+        input[type="number"] {
+            padding: 10px;
+            border: 2px solid var(--light);
+            border-radius: 8px;
+            font-size: 1em;
+            width: 100px;
+            transition: all 0.3s ease;
+        }
+
+        input[type="number"]:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.1);
+        }
+
+        .btn {
+            padding: 10px 24px;
+            background: linear-gradient(135deg, var(--success) 0%, #2ecc71 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(39, 174, 96, 0.4);
+        }
+
+        .btn:hover::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .btn-export {
+            background: linear-gradient(135deg, var(--warning) 0%, #f1c40f 100%);
+            box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3);
+        }
+
+        .btn-export:hover {
+            box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4);
+        }
+
+        /* Status Messages */
+        .status {
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .status.success {
+            background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
+            color: #155724;
+            border-left: 4px solid var(--success);
+        }
+
+        .status.error {
+            background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
+            color: #721c24;
+            border-left: 4px solid var(--danger);
+        }
+
+        .status.info {
+            background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%);
+            color: #0c5460;
+            border-left: 4px solid var(--primary);
+        }
+
+        /* Data Table */
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: var(--card-shadow);
+            overflow-x: auto;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .table-container:hover {
+            box-shadow: var(--hover-shadow);
+        }
+
+        .search-box {
+            margin-bottom: 20px;
+            position: relative;
+        }
+
+        .search-box input {
+            width: 100%;
+            padding: 12px 20px 12px 45px;
+            border: 2px solid var(--light);
+            border-radius: 10px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+
+        .search-box input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(0, 122, 204, 0.1);
+        }
+
+        .search-box::before {
+            content: '🔍';
+            position: absolute;
+            left: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 1.2em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+
+        thead {
+            background: var(--bg-gradient);
+            color: white;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            cursor: pointer;
+            user-select: none;
+            position: relative;
+            transition: background 0.3s ease;
+        }
+
+        th:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        th:first-child {
+            border-top-left-radius: 10px;
+        }
+
+        th:last-child {
+            border-top-right-radius: 10px;
+        }
+
+        .sort-indicator {
+            position: absolute;
+            right: 10px;
+            opacity: 0.7;
+            transition: transform 0.3s ease;
+        }
+
+        .sort-indicator.desc {
+            transform: rotate(180deg);
+        }
+
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--light);
+            transition: background 0.3s ease;
+        }
+
+        tbody tr {
+            transition: all 0.3s ease;
+        }
+
+        tbody tr:hover {
+            background: linear-gradient(90deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%);
+            transform: scale(1.01);
+        }
+
+        .tier-red {
+            background: linear-gradient(90deg, #ffe5e5 0%, #ffcccc 100%);
+            border-left: 4px solid var(--danger);
+        }
+
+        .tier-orange {
+            background: linear-gradient(90deg, #fff4e5 0%, #ffe4cc 100%);
+            border-left: 4px solid var(--warning);
+        }
+
+        .tier-grey {
+            background: linear-gradient(90deg, #f5f5f5 0%, #ebebeb 100%);
+            border-left: 4px solid #999;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-critical {
+            background: linear-gradient(135deg, var(--danger) 0%, #c0392b 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(231, 76, 60, 0.3);
+        }
+
+        .badge-warning {
+            background: linear-gradient(135deg, var(--warning) 0%, #e67e22 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(243, 156, 18, 0.3);
+        }
+
+        .badge-none {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            color: white;
+            box-shadow: 0 2px 10px rgba(149, 165, 166, 0.3);
+        }
+
+        /* Analytics */
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: var(--bg-gradient);
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: var(--hover-shadow);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: bold;
+            background: var(--bg-gradient);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 10px;
+        }
+
+        .stat-label {
+            color: var(--dark);
+            font-size: 1.1em;
+            font-weight: 600;
+        }
+
+        .stat-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 3em;
+            opacity: 0.1;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: var(--card-shadow);
+            margin-bottom: 25px;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .chart-container canvas {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+
+        .chart-container:hover {
+            box-shadow: var(--hover-shadow);
+        }
+
+        .chart-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            color: var(--dark);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .chart-title::before {
+            content: '';
+            width: 4px;
+            height: 24px;
+            background: var(--bg-gradient);
+            border-radius: 2px;
+        }
+
+        /* Summary Section */
+        .summary-bar {
+            background: linear-gradient(135deg, white 0%, #f8f9fa 100%);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 25px;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .summary-item {
+            text-align: center;
+            padding: 10px;
+            min-width: 150px;
+        }
+
+        .summary-item .value {
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 5px;
+        }
+
+        .summary-item .label {
+            color: var(--dark);
+            font-size: 0.9em;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        /* Loading Spinner */
+        .spinner {
+            display: none;
+            width: 50px;
+            height: 50px;
+            border: 4px solid var(--light);
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 60px;
+            padding: 30px 20px;
+            text-align: center;
+            color: #555;
+            font-size: 0.9em;
+            background: linear-gradient(135deg, rgba(255,255,255,0.95) 0%, rgba(248,249,250,0.95) 100%);
+            border-radius: 15px;
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.05);
+            position: relative;
+        }
+
+        .footer::before {
+            content: '';
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 100px;
+            height: 3px;
+            background: var(--bg-gradient);
+            border-radius: 2px;
+        }
+
+        .footer p {
+            margin: 8px 0;
+        }
+
+        .footer .version-info {
+            font-size: 0.85em;
+            opacity: 0.7;
+            color: #777;
+        }
+
+        .footer strong {
+            color: var(--primary);
+            font-size: 1.05em;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 10px;
+            }
+
+            .header {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 1.8em;
+            }
+
+            .controls {
+                flex-direction: column;
+            }
+
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .table-container {
+                padding: 15px;
+            }
+
+            table {
+                font-size: 0.9em;
+            }
+
+            th, td {
+                padding: 8px;
+            }
+        }
+
+        /* Dark Mode Toggle */
+        .theme-toggle {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: var(--bg-gradient);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: var(--card-shadow);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            transition: all 0.3s ease;
+            z-index: 1000;
+        }
+
+        .theme-toggle:hover {
+            transform: scale(1.1) rotate(180deg);
+        }
+
+        /* Help Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 2000;
+            animation: fadeIn 0.3s ease;
+        }
+
+        .modal-content {
+            position: relative;
+            background: white;
+            margin: 50px auto;
+            padding: 30px;
+            width: 90%;
+            max-width: 700px;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            animation: slideUp 0.5s ease;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(100px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid var(--light);
+        }
+
+        .modal-header h2 {
+            color: var(--primary);
+            font-size: 1.8em;
+        }
+
+        .close-modal {
+            background: none;
+            border: none;
+            font-size: 2em;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.3s ease;
+        }
+
+        .close-modal:hover {
+            color: var(--danger);
+        }
+
+        .help-section {
+            margin-bottom: 25px;
+        }
+
+        .help-section h3 {
+            color: var(--primary);
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .help-section p {
+            line-height: 1.6;
+            color: #555;
+        }
+
+        .help-section ul {
+            margin-left: 30px;
+            margin-top: 10px;
+        }
+
+        .help-section li {
+            margin-bottom: 8px;
+            color: #555;
+        }
+
+        /* Floating Action Button */
+        .fab-container {
+            position: fixed;
+            bottom: 30px;
+            left: 30px;
+            z-index: 1000;
+        }
+
+        .fab {
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--bg-gradient);
+            color: white;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+            font-size: 1.5em;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .fab:hover {
+            transform: scale(1.1);
+            box-shadow: 0 8px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        .fab-menu {
+            position: absolute;
+            bottom: 70px;
+            left: 0;
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .fab-menu.active {
+            display: flex;
+            animation: fabMenuSlide 0.3s ease;
+        }
+
+        @keyframes fabMenuSlide {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .fab-option {
+            padding: 10px 15px;
+            background: white;
+            border-radius: 25px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            white-space: nowrap;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .fab-option:hover {
+            transform: translateX(5px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <h1>📊 Clients With No Billing</h1>
+            <p>Analytics Suite for FOCUS EHR | Billing Gap Analysis</p>
+            <div class="version-badge">v2.0</div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="status"></div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('dashboard', event)">📈 Dashboard</button>
+            <button class="tab-btn" onclick="switchTab('analytics', event)">📊 Analytics</button>
+            <button class="tab-btn" onclick="switchTab('settings', event)">⚙️ Settings</button>
+        </div>
+
+        <!-- Dashboard Tab -->
+        <div id="dashboard-tab" class="tab-content active">
+            <!-- Controls -->
+            <div class="controls">
+                <div class="control-group">
+                    <label>Active Clients File</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="activeFile" accept=".xlsx,.xls" onchange="handleActiveFile(event)">
+                        <label for="activeFile" class="file-input-label">📁 Choose Active File</label>
+                    </div>
+                    <a href="https://tis.focuscbmapp.com/reports/datageniereport?id=b3e01287-9c99-4f6e-8d00-aed659bfa308&name=Client%20By%20Status" 
+                       target="_blank" 
+                       class="download-link"
+                       title="Download the latest Client By Status report from FOCUS EHR">
+                       📥 Download Client By Status from FOCUS
+                    </a>
+                </div>
+
+                <div class="control-group">
+                    <label>Billing Report File</label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="billingFile" accept=".xlsx,.xls" onchange="handleBillingFile(event)">
+                        <label for="billingFile" class="file-input-label">📄 Choose Billing File</label>
+                    </div>
+                    <a href="https://tis.focuscbmapp.com/reports/datageniereport?id=8852d61e-9634-4e04-b382-6f9b0c855c2b&name=Billing%20by%20Submission%20Date" 
+                       target="_blank" 
+                       class="download-link"
+                       title="Download the latest Billing by Submission report from FOCUS EHR">
+                       📥 Download Billing Report from FOCUS
+                    </a>
+                </div>
+
+                <div class="control-group">
+                    <label>Look-back Days</label>
+                    <input type="number" id="lookbackDays" value="30" min="1" max="365">
+                </div>
+
+                <div class="control-group">
+                    <label>Warning Threshold</label>
+                    <input type="number" id="warnDays" value="60" min="1" max="365">
+                </div>
+
+                <button class="btn" onclick="analyzeGaps()">🔄 Analyze Gaps</button>
+                <button class="btn btn-export" onclick="exportToExcel()">💾 Export to Excel</button>
+            </div>
+
+            <!-- Summary Bar -->
+            <div id="summaryBar" class="summary-bar" style="display: none;">
+                <div class="summary-item">
+                    <div class="value" id="totalGaps">0</div>
+                    <div class="label">Total Gaps</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="criticalCount" style="color: var(--danger);">0</div>
+                    <div class="label">Critical</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="warningCount" style="color: var(--warning);">0</div>
+                    <div class="label">Warning</div>
+                </div>
+                <div class="summary-item">
+                    <div class="value" id="noBillingCount" style="color: #999;">0</div>
+                    <div class="label">No Billing</div>
+                </div>
+            </div>
+
+            <!-- Loading Spinner -->
+            <div id="spinner" class="spinner"></div>
+
+            <!-- Data Table -->
+            <div id="tableContainer" class="table-container" style="display: none;">
+                <div class="search-box">
+                    <input type="text" id="searchInput" placeholder="Search by name, provider, or service..." onkeyup="filterTable()">
+                </div>
+                <table id="dataTable">
+                    <thead>
+                        <tr>
+                            <th onclick="sortTable(0)">Name <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(1)">Fund <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(2)">Provider <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(3)">Service <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(4)">Last Bill <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(5)">Days Since <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortTable(6)">Status <span class="sort-indicator">▼</span></th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content" style="overflow-y: auto; max-height: calc(100vh - 200px);">
+            <!-- Statistics Grid -->
+            <div class="analytics-grid">
+                <div class="stat-card">
+                    <div class="stat-icon">📊</div>
+                    <div class="stat-value" id="avgDaysSince">0</div>
+                    <div class="stat-label">Average Days Since Billing</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">👥</div>
+                    <div class="stat-value" id="uniqueProviders">0</div>
+                    <div class="stat-label">Active Providers</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🏥</div>
+                    <div class="stat-value" id="uniqueServices">0</div>
+                    <div class="stat-label">Service Types</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚠️</div>
+                    <div class="stat-value" id="urgentPercent">0%</div>
+                    <div class="stat-label">Urgent Action Required</div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="chart-container">
+                <div class="chart-title">Gap Distribution by Severity</div>
+                <div style="position: relative; height: 300px; width: 100%; overflow: hidden;">
+                    <canvas id="severityChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Service Type Analysis</div>
+                <div style="position: relative; height: 300px; width: 100%; overflow: hidden;">
+                    <canvas id="serviceChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Provider Performance</div>
+                <div style="position: relative; height: 300px; width: 100%; overflow: hidden;">
+                    <canvas id="providerChart"></canvas>
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <div class="chart-title">Days Since Billing Distribution</div>
+                <div style="position: relative; height: 300px; width: 100%; overflow: hidden;">
+                    <canvas id="daysDistChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings-tab" class="tab-content">
+            <div class="table-container">
+                <h2>Configuration Settings</h2>
+                <div style="padding: 20px;">
+                    <div style="background: linear-gradient(135deg, #e3f2fd 0%, #e1f5fe 100%); padding: 15px; border-radius: 10px; margin-bottom: 20px; border-left: 4px solid var(--primary);">
+                        <p style="margin: 0; color: #0d47a1;"><strong>💡 Quick Tip:</strong> Use the download links in the Dashboard tab to get the latest reports directly from FOCUS EHR. The links are pre-configured with the correct report IDs for seamless data retrieval.</p>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>FOCUS EHR Reports</h3>
+                        <p>Download the required reports directly from FOCUS EHR:</p>
+                        <ul>
+                            <li><a href="https://tis.focuscbmapp.com/reports/datageniereport?id=b3e01287-9c99-4f6e-8d00-aed659bfa308&name=Client%20By%20Status" target="_blank">Client By Status Report</a> - Contains active client information</li>
+                            <li><a href="https://tis.focuscbmapp.com/reports/datageniereport?id=8852d61e-9634-4e04-b382-6f9b0c855c2b&name=Billing%20by%20Submission%20Date" target="_blank">Billing by Submission Report</a> - Contains billing submission data</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>File Requirements</h3>
+                        <p>Ensure your Excel files meet the following requirements:</p>
+                        <ul>
+                            <li><strong>Active Clients File:</strong> Must contain columns: MAID, Name, Status, Funding</li>
+                            <li><strong>Billing Report:</strong> Must contain columns: MAID, FullName, Begin Date, Created By, Title</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="help-section">
+                        <h3>Threshold Settings</h3>
+                        <ul>
+                            <li><strong>Look-back Days:</strong> Number of days to consider as a billing gap (default: 30)</li>
+                            <li><strong>Warning Threshold:</strong> Days after which gap becomes critical (default: 60)</li>
+                        </ul>
+                    </div>
+
+                    <div class="help-section">
+                        <h3>Export Options</h3>
+                        <p>The Excel export includes:</p>
+                        <ul>
+                            <li>Formatted data with color coding</li>
+                            <li>Frozen header row with filters</li>
+                            <li>Summary statistics sheet</li>
+                            <li>Provider performance analysis</li>
+                            <li>Service type breakdown</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="footer">
+            <p><strong>© 2025 Accelerate Solutions, LLC</strong></p>
+            <p class="version-info">Build Date: January 20, 2025 | Version 2.0</p>
+            <p class="version-info">FOCUS EHR Integration | Billing Gap Analysis Suite</p>
+        </div>
+    </div>
+
+    <!-- Help Modal -->
+    <div id="helpModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📖 Help & Documentation</h2>
+                <button class="close-modal" onclick="closeHelp()">&times;</button>
+            </div>
+            <p style="text-align: center; color: #666; margin-top: -10px; margin-bottom: 20px; font-style: italic;">
+                FOCUS EHR Billing Gap Analysis Tool
+            </p>
+            
+            <div class="help-section">
+                <h3>Quick Start Guide</h3>
+                <p>Follow these steps to analyze billing gaps in FOCUS EHR:</p>
+                <ol>
+                    <li>Download the latest reports from FOCUS EHR using the provided links</li>
+                    <li>Upload your Client By Status Excel file</li>
+                    <li>Upload your Billing by Submission Excel file</li>
+                    <li>Adjust the look-back days if needed (default: 30)</li>
+                    <li>Click "Analyze Gaps" to process the data</li>
+                    <li>Review results in the dashboard</li>
+                    <li>Check the Analytics tab for insights</li>
+                    <li>Export results to Excel for sharing</li>
+                </ol>
+            </div>
+
+            <div class="help-section">
+                <h3>Understanding Gap Tiers</h3>
+                <ul>
+                    <li><strong>🔴 Critical (Red):</strong> No billing for more than 60 days - immediate action required</li>
+                    <li><strong>🟡 Warning (Orange):</strong> No billing for 31-60 days - review soon</li>
+                    <li><strong>⚪ No Billing (Grey):</strong> No billing record found - new clients or never billed</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Analytics Insights</h3>
+                <p>The Analytics tab provides:</p>
+                <ul>
+                    <li>Average days since last billing across all gaps</li>
+                    <li>Number of unique providers and services</li>
+                    <li>Distribution charts for better visualization</li>
+                    <li>Provider performance metrics</li>
+                    <li>Service type analysis</li>
+                </ul>
+            </div>
+
+            <div class="help-section">
+                <h3>Tips for Success</h3>
+                <ul>
+                    <li>Run analysis weekly to catch gaps early</li>
+                    <li>Focus on red-tier clients first</li>
+                    <li>Use the search function to find specific clients</li>
+                    <li>Export results for team meetings</li>
+                    <li>Monitor provider patterns in analytics</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Floating Action Button -->
+    <div class="fab-container">
+        <div class="fab-menu" id="fabMenu">
+            <div class="fab-option" onclick="showHelp()">📖 Help</div>
+            <div class="fab-option" onclick="clearData()">🗑️ Clear Data</div>
+            <div class="fab-option" onclick="loadSampleData()">📊 Load Sample</div>
+        </div>
+        <button class="fab" onclick="toggleFabMenu()">+</button>
+    </div>
+
+    <!-- Theme Toggle -->
+    <button class="theme-toggle" onclick="toggleTheme()">🌙</button>
+
+    <script>
+        /**
+         * Clients With No Billing - Analytics Suite for FOCUS EHR
+         * Version 2.0 - Build Date: January 20, 2025
+         * © 2025 Accelerate Solutions, LLC
+         */
+
+        // Global variables
+        let activeData = null;
+        let billingData = null;
+        let gapData = [];
+        let sortDirection = {};
+        let isDarkMode = false;
+        let chartInstances = {
+            severity: null,
+            service: null,
+            provider: null,
+            days: null
+        };
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Load saved settings
+            const savedLookback = localStorage.getItem('lookbackDays');
+            const savedWarn = localStorage.getItem('warnDays');
+            if (savedLookback) document.getElementById('lookbackDays').value = savedLookback;
+            if (savedWarn) document.getElementById('warnDays').value = savedWarn;
+            
+            // Show welcome message if first visit
+            const hasVisited = localStorage.getItem('focusEHRVisited');
+            if (!hasVisited) {
+                showStatus('info', 'Welcome! This tool analyzes billing gaps from FOCUS EHR reports. Use the download links to get started.');
+                localStorage.setItem('focusEHRVisited', 'true');
+            }
+        });
+
+        // File handlers
+        function handleActiveFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                showStatus('info', 'Loading active clients file...');
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        activeData = XLSX.utils.sheet_to_json(firstSheet);
+                        showStatus('success', `Loaded ${activeData.length} active clients`);
+                    } catch (error) {
+                        showStatus('error', 'Error reading active clients file: ' + error.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        function handleBillingFile(event) {
+            const file = event.target.files[0];
+            if (file) {
+                showStatus('info', 'Loading billing report file...');
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+                        billingData = XLSX.utils.sheet_to_json(firstSheet);
+                        showStatus('success', `Loaded ${billingData.length} billing records`);
+                    } catch (error) {
+                        showStatus('error', 'Error reading billing file: ' + error.message);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        }
+
+        // Process and analyze gaps
+        function analyzeGaps() {
+            if (!activeData || !billingData) {
+                showStatus('error', 'Please upload both active clients and billing report files');
+                return;
+            }
+
+            document.getElementById('spinner').style.display = 'block';
+            showStatus('info', 'Analyzing billing gaps...');
+
+            const lookbackDays = parseInt(document.getElementById('lookbackDays').value);
+            const warnDays = parseInt(document.getElementById('warnDays').value);
+            const today = new Date();
+
+            // Process active clients (filter out HR funding)
+            const activeClients = activeData.filter(client => {
+                return client.Status && 
+                       client.Status.toLowerCase() === 'active' && 
+                       (!client.Funding || !client.Funding.includes('HR'));
+            });
+
+            // Create billing lookup map by MAID
+            const billingMap = {};
+            billingData.forEach(bill => {
+                const maid = bill.MAID ? bill.MAID.toString().trim() : '';
+                const beginDate = bill['Begin Date'] ? new Date(bill['Begin Date']) : null;
+                
+                if (maid && beginDate) {
+                    if (!billingMap[maid] || beginDate > billingMap[maid].date) {
+                        billingMap[maid] = {
+                            date: beginDate,
+                            provider: bill['Created By'] || 'Unknown',
+                            service: extractService(bill.Title || bill.title || ''),
+                            fullName: bill.FullName || ''
+                        };
+                    }
+                }
+            });
+
+            // Analyze gaps
+            gapData = [];
+            activeClients.forEach(client => {
+                const maid = client.MAID ? client.MAID.toString().trim() : '';
+                const billing = billingMap[maid];
+                
+                let daysSince = 0;
+                let lastBillDate = null;
+                let provider = 'No billing';
+                let service = '—';
+                
+                if (billing) {
+                    daysSince = Math.floor((today - billing.date) / (1000 * 60 * 60 * 24));
+                    lastBillDate = billing.date;
+                    provider = billing.provider;
+                    service = billing.service;
+                } else {
+                    // Try fuzzy matching if no MAID match
+                    const clientName = (client.Name || '').toLowerCase();
+                    if (clientName) {
+                        Object.values(billingMap).forEach(bill => {
+                            const billName = (bill.fullName || '').toLowerCase();
+                            if (billName && fuzzyMatch(clientName, billName) > 0.8) {
+                                daysSince = Math.floor((today - bill.date) / (1000 * 60 * 60 * 24));
+                                lastBillDate = bill.date;
+                                provider = bill.provider;
+                                service = bill.service;
+                            }
+                        });
+                    }
+                }
+
+                // Determine if this is a gap
+                if (daysSince === 0 || daysSince > lookbackDays) {
+                    let tier, status;
+                    if (daysSince === 0) {
+                        tier = 'grey';
+                        status = 'No Billing Record';
+                    } else if (daysSince > warnDays) {
+                        tier = 'red';
+                        status = `Critical: ${daysSince} Days`;
+                    } else {
+                        tier = 'orange';
+                        status = `Warning: ${daysSince} Days`;
+                    }
+
+                    gapData.push({
+                        name: client.Name || '',
+                        fund: (client.Funding || '').substring(0, 3).toUpperCase(),
+                        provider: provider,
+                        service: service,
+                        lastBill: lastBillDate ? formatDate(lastBillDate) : 'Never',
+                        daysSince: daysSince || 0,
+                        status: status,
+                        tier: tier
+                    });
+                }
+            });
+
+            // Sort by days since (descending)
+            gapData.sort((a, b) => b.daysSince - a.daysSince);
+
+            // Display results
+            displayResults();
+            
+            // Update analytics if we have data
+            if (gapData.length > 0) {
+                updateAnalytics();
+            }
+            
+            document.getElementById('spinner').style.display = 'none';
+            showStatus('success', `Found ${gapData.length} billing gaps`);
+        }
+
+        // Display results in table
+        function displayResults() {
+            const tableBody = document.getElementById('tableBody');
+            const tableContainer = document.getElementById('tableContainer');
+            const summaryBar = document.getElementById('summaryBar');
+            
+            tableBody.innerHTML = '';
+            
+            if (gapData.length === 0) {
+                tableContainer.style.display = 'none';
+                summaryBar.style.display = 'none';
+                return;
+            }
+
+            tableContainer.style.display = 'block';
+            summaryBar.style.display = 'flex';
+
+            // Update summary
+            const critical = gapData.filter(d => d.tier === 'red').length;
+            const warning = gapData.filter(d => d.tier === 'orange').length;
+            const noBilling = gapData.filter(d => d.tier === 'grey').length;
+
+            document.getElementById('totalGaps').textContent = gapData.length;
+            document.getElementById('criticalCount').textContent = critical;
+            document.getElementById('warningCount').textContent = warning;
+            document.getElementById('noBillingCount').textContent = noBilling;
+
+            // Populate table
+            gapData.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.className = `tier-${row.tier}`;
+                
+                let statusBadge = '';
+                if (row.tier === 'red') {
+                    statusBadge = '<span class="badge badge-critical">🔴 ' + row.status + '</span>';
+                } else if (row.tier === 'orange') {
+                    statusBadge = '<span class="badge badge-warning">🟡 ' + row.status + '</span>';
+                } else {
+                    statusBadge = '<span class="badge badge-none">⚪ ' + row.status + '</span>';
+                }
+
+                tr.innerHTML = `
+                    <td>${row.name}</td>
+                    <td style="text-align: center;"><strong>${row.fund}</strong></td>
+                    <td>${row.provider}</td>
+                    <td style="text-align: center;">${row.service}</td>
+                    <td style="text-align: center;">${row.lastBill}</td>
+                    <td style="text-align: center;"><strong>${row.daysSince}</strong></td>
+                    <td>${statusBadge}</td>
+                `;
+                
+                tableBody.appendChild(tr);
+            });
+        }
+
+        // Update analytics charts
+        function updateAnalytics() {
+            if (gapData.length === 0) return;
+
+            // Calculate statistics
+            const avgDays = Math.round(gapData.reduce((sum, d) => sum + d.daysSince, 0) / gapData.length);
+            const providers = [...new Set(gapData.map(d => d.provider))];
+            const services = [...new Set(gapData.map(d => d.service))];
+            const urgentPercent = Math.round((gapData.filter(d => d.tier === 'red').length / gapData.length) * 100);
+
+            document.getElementById('avgDaysSince').textContent = avgDays;
+            document.getElementById('uniqueProviders').textContent = providers.length;
+            document.getElementById('uniqueServices').textContent = services.length;
+            document.getElementById('urgentPercent').textContent = urgentPercent + '%';
+
+            // Destroy ALL existing charts properly
+            if (chartInstances.severity) {
+                chartInstances.severity.destroy();
+                chartInstances.severity = null;
+            }
+            if (chartInstances.service) {
+                chartInstances.service.destroy();
+                chartInstances.service = null;
+            }
+            if (chartInstances.provider) {
+                chartInstances.provider.destroy();
+                chartInstances.provider = null;
+            }
+            if (chartInstances.days) {
+                chartInstances.days.destroy();
+                chartInstances.days = null;
+            }
+
+            // Severity Distribution Chart
+            const severityCtx = document.getElementById('severityChart').getContext('2d');
+            chartInstances.severity = new Chart(severityCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Critical', 'Warning', 'No Billing'],
+                    datasets: [{
+                        data: [
+                            gapData.filter(d => d.tier === 'red').length,
+                            gapData.filter(d => d.tier === 'orange').length,
+                            gapData.filter(d => d.tier === 'grey').length
+                        ],
+                        backgroundColor: ['#e74c3c', '#f39c12', '#95a5a6'],
+                        borderWidth: 2,
+                        borderColor: '#fff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right'
+                        }
+                    }
+                }
+            });
+
+            // Service Type Chart
+            const serviceCounts = {};
+            gapData.forEach(d => {
+                serviceCounts[d.service] = (serviceCounts[d.service] || 0) + 1;
+            });
+
+            const serviceCtx = document.getElementById('serviceChart').getContext('2d');
+            chartInstances.service = new Chart(serviceCtx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(serviceCounts),
+                    datasets: [{
+                        label: 'Number of Gaps',
+                        data: Object.values(serviceCounts),
+                        backgroundColor: 'rgba(102, 126, 234, 0.8)',
+                        borderColor: 'rgba(102, 126, 234, 1)',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+
+            // Provider Performance Chart - Using regular bar with indexAxis for horizontal
+            const providerCounts = {};
+            gapData.forEach(d => {
+                if (d.provider !== 'No billing') {
+                    providerCounts[d.provider] = (providerCounts[d.provider] || 0) + 1;
+                }
+            });
+
+            const topProviders = Object.entries(providerCounts)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 10);
+
+            if (topProviders.length > 0) {
+                const providerCtx = document.getElementById('providerChart').getContext('2d');
+                chartInstances.provider = new Chart(providerCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: topProviders.map(p => p[0]),
+                        datasets: [{
+                            label: 'Clients with Gaps',
+                            data: topProviders.map(p => p[1]),
+                            backgroundColor: 'rgba(118, 75, 162, 0.8)',
+                            borderColor: 'rgba(118, 75, 162, 1)',
+                            borderWidth: 2
+                        }]
+                    },
+                    options: {
+                        indexAxis: 'y',  // This makes the bar chart horizontal
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        scales: {
+                            x: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            }
+
+            // Days Distribution Chart
+            const dayRanges = {
+                '0-30': 0,
+                '31-60': 0,
+                '61-90': 0,
+                '91-120': 0,
+                '120+': 0
+            };
+
+            gapData.forEach(d => {
+                if (d.daysSince <= 30) dayRanges['0-30']++;
+                else if (d.daysSince <= 60) dayRanges['31-60']++;
+                else if (d.daysSince <= 90) dayRanges['61-90']++;
+                else if (d.daysSince <= 120) dayRanges['91-120']++;
+                else dayRanges['120+']++;
+            });
+
+            const daysCtx = document.getElementById('daysDistChart').getContext('2d');
+            chartInstances.days = new Chart(daysCtx, {
+                type: 'line',
+                data: {
+                    labels: Object.keys(dayRanges),
+                    datasets: [{
+                        label: 'Number of Clients',
+                        data: Object.values(dayRanges),
+                        borderColor: 'rgba(52, 152, 219, 1)',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        borderWidth: 3,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                stepSize: 1
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Export to Excel
+        function exportToExcel() {
+            if (gapData.length === 0) {
+                showStatus('error', 'No data to export. Please analyze gaps first.');
+                return;
+            }
+
+            const wb = XLSX.utils.book_new();
+
+            // Main data sheet
+            const wsData = gapData.map(row => ({
+                'Name': row.name,
+                'Fund': row.fund,
+                'Provider': row.provider,
+                'Service': row.service,
+                'Last Bill': row.lastBill,
+                'Days Since': row.daysSince,
+                'Status': row.status,
+                'Tier': row.tier.toUpperCase()
+            }));
+
+            const ws = XLSX.utils.json_to_sheet(wsData);
+            
+            // Add column widths
+            const colWidths = [
+                {wch: 30}, // Name
+                {wch: 10}, // Fund
+                {wch: 25}, // Provider
+                {wch: 15}, // Service
+                {wch: 12}, // Last Bill
+                {wch: 12}, // Days Since
+                {wch: 20}, // Status
+                {wch: 10}  // Tier
+            ];
+            ws['!cols'] = colWidths;
+
+            XLSX.utils.book_append_sheet(wb, ws, 'Billing Gaps');
+
+            // Summary sheet
+            const summaryData = [
+                ['FOCUS EHR Billing Gap Analysis', ''],
+                ['', ''],
+                ['Summary Statistics', ''],
+                ['', ''],
+                ['Total Gaps Found:', gapData.length],
+                ['Critical (Red):', gapData.filter(d => d.tier === 'red').length],
+                ['Warning (Orange):', gapData.filter(d => d.tier === 'orange').length],
+                ['No Billing (Grey):', gapData.filter(d => d.tier === 'grey').length],
+                ['', ''],
+                ['Average Days Since Billing:', Math.round(gapData.reduce((sum, d) => sum + d.daysSince, 0) / gapData.length)],
+                ['', ''],
+                ['Report Generated:', new Date().toLocaleString()],
+                ['', ''],
+                ['© 2025 Accelerate Solutions, LLC', '']
+            ];
+
+            const wsSummary = XLSX.utils.aoa_to_sheet(summaryData);
+            wsSummary['!cols'] = [{wch: 25}, {wch: 15}];
+            XLSX.utils.book_append_sheet(wb, wsSummary, 'Summary');
+
+            // Provider Analysis sheet
+            const providerStats = {};
+            gapData.forEach(d => {
+                if (!providerStats[d.provider]) {
+                    providerStats[d.provider] = {
+                        total: 0,
+                        critical: 0,
+                        warning: 0,
+                        noBilling: 0
+                    };
+                }
+                providerStats[d.provider].total++;
+                if (d.tier === 'red') providerStats[d.provider].critical++;
+                else if (d.tier === 'orange') providerStats[d.provider].warning++;
+                else providerStats[d.provider].noBilling++;
+            });
+
+            const providerData = Object.entries(providerStats).map(([provider, stats]) => ({
+                'Provider': provider,
+                'Total Gaps': stats.total,
+                'Critical': stats.critical,
+                'Warning': stats.warning,
+                'No Billing': stats.noBilling
+            }));
+
+            const wsProvider = XLSX.utils.json_to_sheet(providerData);
+            wsProvider['!cols'] = [{wch: 30}, {wch: 12}, {wch: 10}, {wch: 10}, {wch: 12}];
+            XLSX.utils.book_append_sheet(wb, wsProvider, 'Provider Analysis');
+
+            // Service Analysis sheet
+            const serviceStats = {};
+            gapData.forEach(d => {
+                if (!serviceStats[d.service]) {
+                    serviceStats[d.service] = {
+                        total: 0,
+                        avgDays: 0,
+                        sumDays: 0
+                    };
+                }
+                serviceStats[d.service].total++;
+                serviceStats[d.service].sumDays += d.daysSince;
+            });
+
+            const serviceData = Object.entries(serviceStats).map(([service, stats]) => ({
+                'Service Type': service,
+                'Total Gaps': stats.total,
+                'Average Days Since': Math.round(stats.sumDays / stats.total)
+            }));
+
+            const wsService = XLSX.utils.json_to_sheet(serviceData);
+            wsService['!cols'] = [{wch: 20}, {wch: 12}, {wch: 18}];
+            XLSX.utils.book_append_sheet(wb, wsService, 'Service Analysis');
+
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+            const filename = `FOCUS_Billing_Gaps_${timestamp}.xlsx`;
+
+            // Write file
+            XLSX.writeFile(wb, filename);
+            showStatus('success', `Excel file exported: ${filename}`);
+        }
+
+        // Utility functions
+        function extractService(title) {
+            if (!title) return 'Unknown';
+            const words = title.trim().split(/\s+/);
+            if (words.length > 0) {
+                return words[0].replace('Note', '');
+            }
+            return 'Unknown';
+        }
+
+        function fuzzyMatch(str1, str2) {
+            const s1 = str1.toLowerCase();
+            const s2 = str2.toLowerCase();
+            
+            let longer = s1;
+            let shorter = s2;
+            if (s1.length < s2.length) {
+                longer = s2;
+                shorter = s1;
+            }
+            
+            const longerLength = longer.length;
+            if (longerLength === 0) {
+                return 1.0;
+            }
+            
+            const editDistance = getEditDistance(longer, shorter);
+            return (longerLength - editDistance) / parseFloat(longerLength);
+        }
+
+        function getEditDistance(s1, s2) {
+            const costs = [];
+            for (let i = 0; i <= s1.length; i++) {
+                let lastValue = i;
+                for (let j = 0; j <= s2.length; j++) {
+                    if (i === 0) {
+                        costs[j] = j;
+                    } else {
+                        if (j > 0) {
+                            let newValue = costs[j - 1];
+                            if (s1.charAt(i - 1) !== s2.charAt(j - 1)) {
+                                newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                            }
+                            costs[j - 1] = lastValue;
+                            lastValue = newValue;
+                        }
+                    }
+                }
+                if (i > 0) {
+                    costs[s2.length] = lastValue;
+                }
+            }
+            return costs[s2.length];
+        }
+
+        function formatDate(date) {
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
+            const year = date.getFullYear();
+            return `${month}/${day}/${year}`;
+        }
+
+        function showStatus(type, message) {
+            const statusEl = document.getElementById('statusMessage');
+            statusEl.className = 'status ' + type;
+            statusEl.textContent = message;
+            statusEl.style.display = 'flex';
+            
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusEl.style.display = 'none';
+                }, 5000);
+            }
+        }
+
+        // Table functions
+        function sortTable(columnIndex) {
+            const table = document.getElementById('dataTable');
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            
+            const dir = sortDirection[columnIndex] || 'asc';
+            sortDirection[columnIndex] = dir === 'asc' ? 'desc' : 'asc';
+            
+            // Update sort indicators
+            const headers = table.getElementsByTagName('th');
+            for (let i = 0; i < headers.length; i++) {
+                const indicator = headers[i].querySelector('.sort-indicator');
+                if (i === columnIndex) {
+                    indicator.textContent = dir === 'asc' ? '▲' : '▼';
+                    indicator.className = 'sort-indicator ' + (dir === 'asc' ? '' : 'desc');
+                } else {
+                    indicator.textContent = '▼';
+                    indicator.className = 'sort-indicator';
+                }
+            }
+            
+            rows.sort((a, b) => {
+                const aValue = a.cells[columnIndex].textContent.trim();
+                const bValue = b.cells[columnIndex].textContent.trim();
+                
+                // Handle numeric columns
+                if (columnIndex === 5) { // Days Since
+                    const aNum = parseInt(aValue) || 0;
+                    const bNum = parseInt(bValue) || 0;
+                    return dir === 'asc' ? aNum - bNum : bNum - aNum;
+                }
+                
+                // Handle date columns
+                if (columnIndex === 4) { // Last Bill
+                    const aDate = aValue === 'Never' ? new Date(0) : new Date(aValue);
+                    const bDate = bValue === 'Never' ? new Date(0) : new Date(bValue);
+                    return dir === 'asc' ? aDate - bDate : bDate - aDate;
+                }
+                
+                // String comparison
+                if (dir === 'asc') {
+                    return aValue.localeCompare(bValue);
+                } else {
+                    return bValue.localeCompare(aValue);
+                }
+            });
+            
+            // Re-append sorted rows
+            rows.forEach(row => tbody.appendChild(row));
+        }
+
+        function filterTable() {
+            const input = document.getElementById('searchInput');
+            const filter = input.value.toLowerCase();
+            const tbody = document.getElementById('tableBody');
+            const rows = tbody.getElementsByTagName('tr');
+            
+            for (let i = 0; i < rows.length; i++) {
+                const cells = rows[i].getElementsByTagName('td');
+                let found = false;
+                
+                for (let j = 0; j < cells.length; j++) {
+                    const cellValue = cells[j].textContent || cells[j].innerText;
+                    if (cellValue.toLowerCase().indexOf(filter) > -1) {
+                        found = true;
+                        break;
+                    }
+                }
+                
+                rows[i].style.display = found ? '' : 'none';
+            }
+        }
+
+        // Tab switching
+        function switchTab(tabName, event) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active class from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.add('active');
+            
+            // Add active class to clicked button
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            // Update analytics if switching to analytics tab and data exists
+            if (tabName === 'analytics' && gapData.length > 0) {
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    updateAnalytics();
+                }, 100);
+            }
+        }
+
+        // Help functions
+        function showHelp() {
+            document.getElementById('helpModal').style.display = 'block';
+            closeFabMenu();
+        }
+
+        function closeHelp() {
+            document.getElementById('helpModal').style.display = 'none';
+        }
+
+        // FAB functions
+        function toggleFabMenu() {
+            const menu = document.getElementById('fabMenu');
+            menu.classList.toggle('active');
+        }
+
+        function closeFabMenu() {
+            document.getElementById('fabMenu').classList.remove('active');
+        }
+
+        function clearData() {
+            if (confirm('Clear all data and start over?')) {
+                // Destroy any existing charts
+                Object.keys(chartInstances).forEach(key => {
+                    if (chartInstances[key]) {
+                        chartInstances[key].destroy();
+                        chartInstances[key] = null;
+                    }
+                });
+                
+                activeData = null;
+                billingData = null;
+                gapData = [];
+                document.getElementById('tableBody').innerHTML = '';
+                document.getElementById('tableContainer').style.display = 'none';
+                document.getElementById('summaryBar').style.display = 'none';
+                showStatus('info', 'All data cleared');
+                closeFabMenu();
+            }
+        }
+
+        function loadSampleData() {
+            // Create sample data for demonstration
+            activeData = [
+                {MAID: '001', Name: 'John Doe', Status: 'Active', Funding: 'MED'},
+                {MAID: '002', Name: 'Jane Smith', Status: 'Active', Funding: 'COM'},
+                {MAID: '003', Name: 'Bob Johnson', Status: 'Active', Funding: 'PRI'},
+                {MAID: '004', Name: 'Alice Brown', Status: 'Active', Funding: 'MED'},
+                {MAID: '005', Name: 'Charlie Wilson', Status: 'Active', Funding: 'COM'}
+            ];
+
+            const today = new Date();
+            billingData = [
+                {MAID: '001', FullName: 'John Doe', 'Begin Date': new Date(today - 45 * 24 * 60 * 60 * 1000).toISOString(), 'Created By': 'Dr. Smith', Title: 'Therapy Session'},
+                {MAID: '002', FullName: 'Jane Smith', 'Begin Date': new Date(today - 75 * 24 * 60 * 60 * 1000).toISOString(), 'Created By': 'Dr. Jones', Title: 'Consultation'},
+                {MAID: '003', FullName: 'Bob Johnson', 'Begin Date': new Date(today - 20 * 24 * 60 * 60 * 1000).toISOString(), 'Created By': 'Dr. Brown', Title: 'Assessment'}
+            ];
+
+            showStatus('success', 'Sample data loaded. Click "Analyze Gaps" to process.');
+            closeFabMenu();
+        }
+
+        // Theme toggle
+        function toggleTheme() {
+            isDarkMode = !isDarkMode;
+            if (isDarkMode) {
+                document.body.style.filter = 'invert(1) hue-rotate(180deg)';
+                document.querySelectorAll('img, canvas').forEach(el => {
+                    el.style.filter = 'invert(1) hue-rotate(180deg)';
+                });
+                document.querySelector('.theme-toggle').textContent = '☀️';
+            } else {
+                document.body.style.filter = '';
+                document.querySelectorAll('img, canvas').forEach(el => {
+                    el.style.filter = '';
+                });
+                document.querySelector('.theme-toggle').textContent = '🌙';
+            }
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('helpModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Save settings on change
+        document.getElementById('lookbackDays').addEventListener('change', function() {
+            localStorage.setItem('lookbackDays', this.value);
+        });
+
+        document.getElementById('warnDays').addEventListener('change', function() {
+            localStorage.setItem('warnDays', this.value);
+        });
+    </script>
+</body>
+</html>

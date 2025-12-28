@@ -1421,7 +1421,7 @@
         <div class="header">
             <h1>Clients With No Billing</h1>
             <p>Advanced Analytics Suite for FOCUS EHR | Complete Billing Gap Analysis & Management</p>
-            <div class="version-badge">v3.0 Pro</div>
+            <div class="version-badge">v4.0 Pro</div>
         </div>
 
         <div id="statusMessage" class="status"></div>
@@ -1466,7 +1466,9 @@
                         <input type="file" id="paFile" accept=".xlsx,.xls" onchange="handlePAFile(event)">
                         <label for="paFile" class="file-input-label">Choose PA File</label>
                     </div>
-                    <small style="color: #666; font-size: 0.85em;">Upload to track Prior Authorization status</small>
+                    <a href="https://tis.focuscbmapp.com/reports/chartauditadvanced" 
+                       target="_blank" 
+                       class="download-link">Download from Advanced Chart Audit</a>
                 </div>
 
                 <div class="control-group">
@@ -1505,6 +1507,10 @@
                 <div class="summary-item">
                     <div class="value" id="avgGapDays">0</div>
                     <div class="label">Avg Gap (Days)</div>
+                </div>
+                <div class="summary-item" style="border-left: 2px solid var(--light); padding-left: 15px;">
+                    <div class="value" id="submissionDateRange" style="font-size: 0.85em;">—</div>
+                    <div class="label">Submission Date Range</div>
                 </div>
             </div>
 
@@ -1800,14 +1806,13 @@
                             <th onclick="sortPATable(1)">PA Status <span class="sort-indicator">▼</span></th>
                             <th onclick="sortPATable(2)">Active PAs <span class="sort-indicator">▼</span></th>
                             <th onclick="sortPATable(3)">Expired PAs <span class="sort-indicator">▼</span></th>
-                            <th onclick="sortPATable(4)">All Categories <span class="sort-indicator">▼</span></th>
-                            <th onclick="sortPATable(5)">All Expirations <span class="sort-indicator">▼</span></th>
+                            <th onclick="sortPATable(4)">PA Types & Expirations <span class="sort-indicator">▼</span></th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="paTableBody">
                         <tr>
-                            <td colspan="7" style="text-align: center; padding: 40px; color: #999;">
+                            <td colspan="6" style="text-align: center; padding: 40px; color: #999;">
                                 Upload a PA file to view authorization status
                             </td>
                         </tr>
@@ -2050,8 +2055,8 @@
 
                     <div class="setting-card">
                         <h4>About</h4>
-                        <p><strong>Version:</strong> 3.0 Pro</p>
-                        <p><strong>Build:</strong> 2025-01-20</p>
+                        <p><strong>Version:</strong> 4.0 Pro</p>
+                        <p><strong>Build:</strong> 12/27/2025</p>
                         <p><strong>License:</strong> Accelerate Solutions, LLC</p>
                     </div>
                 </div>
@@ -2104,6 +2109,20 @@
                     <h4>Overview:</h4>
                     <p>The PA Tracker provides comprehensive visibility into client authorization status, helping you ensure compliance and avoid service interruptions.</p>
 
+                    <h4>Downloading PA Data from FOCUS:</h4>
+                    <p>To download PA data, use the <strong>Advanced Chart Audit</strong> report in FOCUS:</p>
+                    <ol>
+                        <li>Navigate to <a href="https://tis.focuscbmapp.com/reports/chartauditadvanced" target="_blank" style="color: var(--primary);">Advanced Chart Audit</a></li>
+                        <li>In the <strong>"Document Type"</strong> field, list all PA types you want to track (e.g., PA Behavior Supports, PA Nutrition, PA Person Centered Coach, PA Community Access, PA Psych)</li>
+                        <li>Configure any other filters as needed</li>
+                        <li><strong>Save this configuration as a filter</strong> for easy reuse in future sessions</li>
+                        <li>Export the results to Excel</li>
+                    </ol>
+                    
+                    <div class="tip">
+                        <strong>Time-Saving Tip:</strong> After configuring your Document Type filters the first time, save the filter configuration. This allows you to quickly generate the same PA report in future sessions without re-entering all the PA types.
+                    </div>
+
                     <h4>PA File Requirements:</h4>
                     <p>The PA file must be an Excel file (.xlsx or .xls) containing:</p>
                     <ul>
@@ -2136,11 +2155,10 @@
                     </ol>
 
                     <h4>PA Integration with Dashboard:</h4>
-                    <p>When PA data is uploaded, three additional columns appear in the main Dashboard:</p>
+                    <p>When PA data is uploaded, additional columns appear in the main Dashboard:</p>
                     <ul>
                         <li><strong>PA Status:</strong> Overall authorization status for the client</li>
-                        <li><strong>PA Types:</strong> List of active authorization categories</li>
-                        <li><strong>PA Expires:</strong> Date of nearest PA expiration</li>
+                        <li><strong>PA Types & Expirations:</strong> Combined view of all authorization types with their expiration dates</li>
                     </ul>
 
                     <div class="tip">
@@ -2502,7 +2520,7 @@
 
         <div class="footer">
             <p><strong>© 2025 Accelerate Solutions, LLC</strong></p>
-            <p class="version-info">Build Date: October 5, 2025 | Version 3.0 Professional Edition</p>
+            <p class="version-info">Build Date: December 27, 2025 | Version 4.0 Professional Edition</p>
             <p class="version-info">FOCUS EHR Integration | Advanced Billing Gap Analysis Suite</p>
         </div>
     </div>
@@ -2561,6 +2579,7 @@
         let filteredData = [];
         let sortDirection = {};
         let isDarkMode = false;
+        let submissionDateRange = { min: null, max: null };
         let chartInstances = {};
         let activeQuickFilters = {
             severity: null,
@@ -2778,9 +2797,25 @@
             });
 
             const billingMap = {};
+            submissionDateRange = { min: null, max: null };
+            
             billingData.forEach(bill => {
                 const maid = bill.MAID ? bill.MAID.toString().trim() : '';
                 const beginDate = bill['Begin Date'] ? new Date(bill['Begin Date']) : null;
+                
+                // Parse Submission Date (format: "12/27/2025 7:04:48 PM")
+                const submissionDateStr = bill['Submission Date'];
+                if (submissionDateStr) {
+                    let subDate = new Date(submissionDateStr);
+                    if (!isNaN(subDate.getTime())) {
+                        if (!submissionDateRange.min || subDate < submissionDateRange.min) {
+                            submissionDateRange.min = subDate;
+                        }
+                        if (!submissionDateRange.max || subDate > submissionDateRange.max) {
+                            submissionDateRange.max = subDate;
+                        }
+                    }
+                }
                 
                 if (maid && beginDate) {
                     if (!billingMap[maid] || beginDate > billingMap[maid].date) {
@@ -3183,7 +3218,7 @@
             tbody.innerHTML = '';
 
             if (!paData || paData.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; padding: 40px; color: #999;">Upload a PA file to view authorization status</td></tr>`;
+                tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 40px; color: #999;">Upload a PA file to view authorization status</td></tr>`;
                 return;
             }
 
@@ -3242,32 +3277,8 @@
                            (expDate && expDate <= today && !statusText.includes('EXPIRES'));
                 });
                 
-                // Get all categories with styled badges
-                const validCategories = [...new Set(validPAs.map(p => p.Category))].filter(Boolean);
-                const expiredCategories = [...new Set(expiredPAs.map(p => p.Category))].filter(Boolean);
-                
-                let categoriesDisplay = '<div style="min-width: 200px;">';
-                if (validCategories.length > 0) {
-                    categoriesDisplay += '<div class="pa-section-header" style="color: #27ae60;">Active</div>';
-                    categoriesDisplay += validCategories.map(cat => 
-                        `<span class="pa-category-item pa-category-valid">✓ ${cat}</span>`
-                    ).join('');
-                }
-                if (expiredCategories.length > 0) {
-                    categoriesDisplay += '<div class="pa-section-header" style="color: #e74c3c; margin-top: 8px;">Expired</div>';
-                    categoriesDisplay += expiredCategories.map(cat => 
-                        `<span class="pa-category-item pa-category-expired">✗ ${cat}</span>`
-                    ).join('');
-                }
-                if (validCategories.length === 0 && expiredCategories.length === 0) {
-                    categoriesDisplay = '—';
-                } else {
-                    categoriesDisplay += '</div>';
-                }
-                
-                // Get all expirations with styled list
+                // Get all expirations for combined display
                 let allExpirations = [];
-                let nearestExpiration = null;
                 let expiringWithin30Days = false;
 
                 [...validPAs, ...expiredPAs].forEach(pa => {
@@ -3282,9 +3293,6 @@
                             });
                             
                             if (pa.Status && pa.Status.toUpperCase() === 'VALID') {
-                                if (!nearestExpiration || expDate < nearestExpiration) {
-                                    nearestExpiration = expDate;
-                                }
                                 if (expDate <= thirtyDaysFromNow && expDate >= today) {
                                     expiringWithin30Days = true;
                                 }
@@ -3296,22 +3304,24 @@
                 // Sort expirations by date
                 allExpirations.sort((a, b) => a.date - b.date);
 
-                // Build comprehensive expiration display with new styling
-                let expirationDisplay = '—';
+                // Build COMBINED PA Types & Expirations display with SHORTENED names
+                let combinedDisplay = '—';
                 if (allExpirations.length > 0) {
-                    expirationDisplay = '<div class="pa-expiration-list" style="min-width: 220px;">';
+                    combinedDisplay = '<div class="pa-expiration-list" style="min-width: 180px;">';
                     allExpirations.forEach(exp => {
-                        const statusClass = exp.status && exp.status.toUpperCase() === 'VALID' ? 'pa-expiration-valid' : 'pa-expiration-expired';
-                        const statusIcon = exp.status && exp.status.toUpperCase() === 'VALID' ? '✓' : '✗';
-                        expirationDisplay += `
+                        const isValid = exp.status && exp.status.toUpperCase() === 'VALID';
+                        const statusClass = isValid ? 'pa-expiration-valid' : 'pa-expiration-expired';
+                        const statusIcon = isValid ? '✓' : '✗';
+                        const shortCategory = shortenPACategory(exp.category);
+                        combinedDisplay += `
                             <div class="pa-expiration-item ${statusClass}">
                                 <span class="pa-expiration-icon">${statusIcon}</span>
-                                <span class="pa-expiration-category">${exp.category}</span>
+                                <span class="pa-expiration-category">${shortCategory}</span>
                                 <span class="pa-expiration-date">${formatDate(exp.date)}</span>
                             </div>
                         `;
                     });
-                    expirationDisplay += '</div>';
+                    combinedDisplay += '</div>';
                 }
 
                 const tr = document.createElement('tr');
@@ -3337,8 +3347,7 @@
                     <td>${paStatusBadge}</td>
                     <td style="text-align: center;"><strong style="font-size: 1.2em;">${validPAs.length}</strong></td>
                     <td style="text-align: center;"><strong style="font-size: 1.2em;">${expiredPAs.length}</strong></td>
-                    <td class="pa-info-cell">${categoriesDisplay}</td>
-                    <td class="pa-info-cell">${expirationDisplay}</td>
+                    <td class="pa-info-cell">${combinedDisplay}</td>
                     <td style="text-align: center;">
                         <button class="btn btn-sm" onclick="viewPADetails('${name.replace(/'/g, "\\'")}')">View Details</button>
                     </td>
@@ -4016,8 +4025,7 @@
                 {key: 'daysSince', label: 'Days Since', visible: visibleColumns.daysSince},
                 {key: 'status', label: 'Status', visible: visibleColumns.status},
                 {key: 'paStatus', label: 'PA Status', visible: hasPAData && visibleColumns.paStatus},
-                {key: 'paTypes', label: 'All PA Types', visible: hasPAData && visibleColumns.paTypes},
-                {key: 'paExpires', label: 'All PA Expirations', visible: hasPAData && visibleColumns.paExpires}
+                {key: 'paInfo', label: 'PA Types & Expirations', visible: hasPAData && (visibleColumns.paTypes || visibleColumns.paExpires)}
             ];
 
             let colIndex = 0;
@@ -4041,6 +4049,14 @@
             document.getElementById('warningCount').textContent = warning;
             document.getElementById('noBillingCount').textContent = noBilling;
             document.getElementById('avgGapDays').textContent = avgDays;
+            
+            // Update submission date range display
+            if (submissionDateRange.min && submissionDateRange.max) {
+                const rangeText = `${formatDate(submissionDateRange.min)} — ${formatDate(submissionDateRange.max)}`;
+                document.getElementById('submissionDateRange').textContent = rangeText;
+            } else {
+                document.getElementById('submissionDateRange').textContent = '—';
+            }
 
             filteredData.forEach(row => {
                 const tr = document.createElement('tr');
@@ -4066,11 +4082,24 @@
                     }
                 }
 
-                // Format PA types with styled badges
-                let paTypesFormatted = row.paTypes || '—';
-
-                // Format PA expires with styled list
-                let paExpiresFormatted = row.paExpires || '—';
+                // Build combined PA info cell with types and expirations together (shortened names)
+                let paCombinedInfo = '—';
+                if (row.paAllExpirations && row.paAllExpirations.length > 0) {
+                    paCombinedInfo = '<div class="pa-expiration-list">';
+                    row.paAllExpirations.forEach(exp => {
+                        const statusClass = exp.status === 'VALID' ? 'pa-expiration-valid' : 'pa-expiration-expired';
+                        const statusIcon = exp.status === 'VALID' ? '✓' : '✗';
+                        const shortCategory = shortenPACategory(exp.category);
+                        paCombinedInfo += `
+                            <div class="pa-expiration-item ${statusClass}">
+                                <span class="pa-expiration-icon">${statusIcon}</span>
+                                <span class="pa-expiration-category">${shortCategory}</span>
+                                <span class="pa-expiration-date">${formatDate(exp.date)}</span>
+                            </div>
+                        `;
+                    });
+                    paCombinedInfo += '</div>';
+                }
 
                 const cells = [
                     row.name,
@@ -4081,8 +4110,7 @@
                     `<strong style="text-align: center; display: block;">${row.daysSince}</strong>`,
                     statusBadge,
                     paStatusBadge,
-                    paTypesFormatted,
-                    paExpiresFormatted
+                    paCombinedInfo
                 ];
 
                 columns.forEach((col, i) => {
@@ -4542,6 +4570,17 @@
                     statusEl.style.display = 'none';
                 }, duration);
             }
+        }
+
+function shortenPACategory(category) {
+            const abbreviations = {
+                'PA Behavior Supports': 'BS',
+                'PA Community Access': 'CA',
+                'PA Nutrition': 'NUT',
+                'PA Person Centered Coach': 'PCC',
+                'PA Psych': 'PSY'
+            };
+            return abbreviations[category] || category;
         }
 
         function sortTable(columnIndex) {

@@ -1243,7 +1243,7 @@
             border-color: #e74c3c;
         }
 
-        .quick-filter-btn.filter-pa-expiring {
+                .quick-filter-btn.filter-pa-expiring {
             border-color: #f39c12;
             color: #f39c12;
         }
@@ -1254,10 +1254,80 @@
             border-color: #f39c12;
         }
 
+        /* PA Tracker multi-select status pills */
+        .pa-status-pill-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .pa-status-pill {
+            padding: 8px 12px;
+            border: 2px solid var(--light);
+            background: white;
+            border-radius: 999px;
+            cursor: pointer;
+            font-size: 0.9em;
+            font-weight: 700;
+            transition: all 0.2s ease;
+            color: var(--dark);
+            user-select: none;
+        }
+
+        .pa-status-pill:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+        }
+
+        .pa-status-pill.active {
+            background: var(--bg-gradient);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 6px 18px rgba(102, 126, 234, 0.25);
+        }
+
+        .pa-status-pill.filter-pa-valid { border-color: #27ae60; color: #27ae60; }
+        .pa-status-pill.filter-pa-expiring { border-color: #f39c12; color: #f39c12; }
+        .pa-status-pill.filter-pa-expired { border-color: #e74c3c; color: #e74c3c; }
+        .pa-status-pill.filter-pa-none { border-color: #95a5a6; color: #95a5a6; }
+
+        .pa-status-pill.filter-pa-valid.active {
+            background: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+            border-color: #27ae60;
+            color: white;
+        }
+
+        .pa-status-pill.filter-pa-expiring.active {
+            background: linear-gradient(135deg, #f39c12 0%, #e67e22 100%);
+            border-color: #f39c12;
+            color: white;
+        }
+
+        .pa-status-pill.filter-pa-expired.active {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+            border-color: #e74c3c;
+            color: white;
+        }
+
+        .pa-status-pill.filter-pa-none.active {
+            background: linear-gradient(135deg, #95a5a6 0%, #7f8c8d 100%);
+            border-color: #95a5a6;
+            color: white;
+        }
+
+        .pa-status-selected {
+            font-size: 0.85em;
+            color: #666;
+            font-weight: 600;
+            margin-top: 8px;
+        }
+
         .filter-section-label {
             font-size: 0.85em;
             color: #666;
-            margin-bottom: 8px;
+            margin-
+-bottom: 8px;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -1769,15 +1839,24 @@
 
                 <div id="paFilterBar" class="filter-bar" style="display: none;">
                     <div class="filter-group">
-                        <label>PA Status</label>
-                        <select id="paStatusFilter" onchange="filterPATable()">
-                            <option value="all">All Statuses</option>
-                            <option value="valid">Valid Only</option>
-                            <option value="expired">Expired Only</option>
-                            <option value="expiring">Expiring Soon</option>
-                            <option value="none">No PA</option>
-                        </select>
+                                            <div class="filter-group">
+                        <label>PA AUTHORIZATION STATUS</label>
+                        <div class="pa-status-pill-row" role="group" aria-label="PA Authorization Status">
+                            <button type="button" class="pa-status-pill filter-pa-valid" data-status="valid"
+                                aria-pressed="false" onclick="togglePAStatusPill('valid')">✅ Valid PA</button>
+
+                            <button type="button" class="pa-status-pill filter-pa-expiring" data-status="expiring"
+                                aria-pressed="false" onclick="togglePAStatusPill('expiring')">⚠️ Expiring Soon</button>
+
+                            <button type="button" class="pa-status-pill filter-pa-expired" data-status="expired"
+                                aria-pressed="false" onclick="togglePAStatusPill('expired')">❌ Expired PA</button>
+
+                            <button type="button" class="pa-status-pill filter-pa-none" data-status="none"
+                                aria-pressed="false" onclick="togglePAStatusPill('none')">⚪ No PA</button>
+                        </div>
+                        <div class="pa-status-selected" id="paStatusSelectedText">Selected: All statuses</div>
                     </div>
+
                     <div class="filter-group">
                         <label>Category Filter</label>
                         <select id="paCategoryFilter" onchange="filterPATable()">
@@ -2584,8 +2663,9 @@
         let activeQuickFilters = {
             severity: null,
             days: null,
-            pa: null
+            pa: []
         };
+
         let visibleColumns = {
             name: true,
             fund: true,
@@ -2618,6 +2698,8 @@
         document.addEventListener('DOMContentLoaded', function() {
             loadSettings();
             initializeColumnSelector();
+            updatePAStatusSelectedDisplay();
+
             
             const hasVisited = localStorage.getItem('focusEHRVisited');
             if (!hasVisited) {
@@ -2963,11 +3045,23 @@
         }
 
         function toggleQuickFilter(type, value) {
-            // Toggle the filter
-            if (activeQuickFilters[type] === value) {
-                activeQuickFilters[type] = null;
+            // Multi-select for PA status; single-select for others
+            if (type === 'pa') {
+                if (!Array.isArray(activeQuickFilters.pa)) activeQuickFilters.pa = [];
+
+                const idx = activeQuickFilters.pa.indexOf(value);
+                if (idx >= 0) {
+                    activeQuickFilters.pa.splice(idx, 1); // remove
+                } else {
+                    activeQuickFilters.pa.push(value); // add
+                }
             } else {
-                activeQuickFilters[type] = value;
+                // Toggle the filter (single-select)
+                if (activeQuickFilters[type] === value) {
+                    activeQuickFilters[type] = null;
+                } else {
+                    activeQuickFilters[type] = value;
+                }
             }
             
             updateQuickFilterUI();
@@ -2975,16 +3069,18 @@
             displayResults();
         }
 
+
         function clearAllQuickFilters() {
             activeQuickFilters = {
                 severity: null,
                 days: null,
-                pa: null
+                pa: []
             };
             updateQuickFilterUI();
             filteredData = [...gapData];
             displayResults();
         }
+
 
         function updateQuickFilterUI() {
             // Remove all active classes
@@ -3007,10 +3103,13 @@
                 if (daysBtn) daysBtn.classList.add('active');
             }
             
-            if (activeQuickFilters.pa) {
-                activeCount++;
-                const paBtn = document.querySelector(`.quick-filter-btn[onclick*="'pa', '${activeQuickFilters.pa}'"]`);
-                if (paBtn) paBtn.classList.add('active');
+            const paSelections = Array.isArray(activeQuickFilters.pa) ? activeQuickFilters.pa : [];
+            if (paSelections.length > 0) {
+                activeCount += paSelections.length;
+                paSelections.forEach(sel => {
+                    const paBtn = document.querySelector(`.quick-filter-btn[onclick*="'pa', '${sel}'"]`);
+                    if (paBtn) paBtn.classList.add('active');
+                });
             }
 
             // Update active filter count
@@ -3021,6 +3120,7 @@
                 countEl.textContent = '';
             }
         }
+
 
         function applyQuickFilters() {
             filteredData = [...gapData];
@@ -3044,29 +3144,34 @@
                 }
             }
 
-            // Apply PA filter
-            if (activeQuickFilters.pa) {
-                const paFilter = activeQuickFilters.pa;
-                if (paFilter === 'valid') {
-                    filteredData = filteredData.filter(row => row.paStatus === 'Valid' && row.paValidCount > 0);
-                } else if (paFilter === 'expired') {
-                    filteredData = filteredData.filter(row => row.paStatus === 'Expired');
-                } else if (paFilter === 'expiring') {
-                    // Check if any PA expires within 30 days
-                    const thirtyDaysFromNow = new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000);
-                    filteredData = filteredData.filter(row => {
-                        if (row.paAllExpirations && row.paAllExpirations.length > 0) {
-                            return row.paAllExpirations.some(exp => 
-                                exp.status === 'VALID' && exp.date <= thirtyDaysFromNow && exp.date >= new Date()
-                            );
+            // Apply PA filter (multi-select: match ANY selected status)
+            const paSelections = Array.isArray(activeQuickFilters.pa) ? activeQuickFilters.pa : [];
+            if (paSelections.length > 0) {
+                const thirtyDaysFromNow = new Date(new Date().getTime() + 30 * 24 * 60 * 60 * 1000);
+
+                filteredData = filteredData.filter(row => {
+                    return paSelections.some(paFilter => {
+                        if (paFilter === 'valid') {
+                            return row.paStatus === 'Valid' && row.paValidCount > 0;
+                        } else if (paFilter === 'expired') {
+                            return row.paStatus === 'Expired';
+                        } else if (paFilter === 'expiring') {
+                            // Check if any PA expires within 30 days
+                            if (row.paAllExpirations && row.paAllExpirations.length > 0) {
+                                return row.paAllExpirations.some(exp => 
+                                    exp.status === 'VALID' && exp.date <= thirtyDaysFromNow && exp.date >= new Date()
+                                );
+                            }
+                            return false;
+                        } else if (paFilter === 'none') {
+                            return row.paStatus === 'None';
                         }
                         return false;
                     });
-                } else if (paFilter === 'none') {
-                    filteredData = filteredData.filter(row => row.paStatus === 'None');
-                }
+                });
             }
         }
+
 
         function buildPAMap() {
             const paMap = {};
@@ -3726,9 +3831,57 @@
             el.style.display = el.style.display === 'none' ? 'block' : 'none';
         }
 
+                function getSelectedPAStatuses() {
+            const buttons = Array.from(document.querySelectorAll('.pa-status-pill[data-status]'));
+            return buttons
+                .filter(btn => btn.classList.contains('active'))
+                .map(btn => btn.dataset.status);
+        }
+
+        function updatePAStatusSelectedDisplay() {
+            const selected = getSelectedPAStatuses();
+            const el = document.getElementById('paStatusSelectedText');
+            if (!el) return;
+
+            if (selected.length === 0) {
+                el.textContent = 'Selected: All statuses';
+                return;
+            }
+
+            const labelMap = {
+                valid: 'Valid PA',
+                expiring: 'Expiring Soon',
+                expired: 'Expired PA',
+                none: 'No PA'
+            };
+
+            el.textContent = 'Selected: ' + selected.map(s => labelMap[s] || s).join(', ');
+        }
+
+        function togglePAStatusPill(status) {
+            const btn = document.querySelector(`.pa-status-pill[data-status="${status}"]`);
+            if (!btn) return;
+
+            btn.classList.toggle('active');
+            const isPressed = btn.classList.contains('active');
+            btn.setAttribute('aria-pressed', isPressed ? 'true' : 'false');
+
+            updatePAStatusSelectedDisplay();
+            filterPATable();
+        }
+
+        function clearPAStatusPills() {
+            const buttons = Array.from(document.querySelectorAll('.pa-status-pill[data-status]'));
+            buttons.forEach(btn => {
+                btn.classList.remove('active');
+                btn.setAttribute('aria-pressed', 'false');
+            });
+            updatePAStatusSelectedDisplay();
+        }
+
         function filterPATable() {
             const searchValue = document.getElementById('paSearchInput').value.toLowerCase();
-            const statusFilter = document.getElementById('paStatusFilter').value;
+            const selectedStatuses = getSelectedPAStatuses(); // multi-select
             const categoryFilter = document.getElementById('paCategoryFilter').value;
             const fundingFilter = document.getElementById('paFundingFilter').value;
 
@@ -3736,43 +3889,55 @@
             const rows = tbody.getElementsByTagName('tr');
 
             let visibleCount = 0;
+
             for (let i = 0; i < rows.length; i++) {
                 const cells = rows[i].getElementsByTagName('td');
                 if (cells.length === 0) continue;
 
                 const name = cells[0].textContent.toLowerCase();
-                const paStatus = cells[1].textContent;
-                
-                let matchesSearch = name.includes(searchValue);
-                let matchesStatus = statusFilter === 'all';
-                
-                if (statusFilter === 'valid' && paStatus.includes('Valid') && !paStatus.includes('Expiring')) {
-                    matchesStatus = true;
-                } else if (statusFilter === 'expired' && paStatus.includes('Expired')) {
-                    matchesStatus = true;
-                } else if (statusFilter === 'expiring' && paStatus.includes('Expiring')) {
-                    matchesStatus = true;
-                } else if (statusFilter === 'none' && paStatus.includes('No PA')) {
-                    matchesStatus = true;
+                const paStatusText = cells[1].textContent;
+
+                const matchesSearch = name.includes(searchValue);
+
+                // If nothing selected, behave like "All"
+                let matchesStatus = selectedStatuses.length === 0;
+
+                if (!matchesStatus) {
+                    // Normalize row status into one key: valid | expiring | expired | none
+                    let statusKey = null;
+
+                    if (paStatusText.includes('No PA')) {
+                        statusKey = 'none';
+                    } else if (paStatusText.includes('Expired')) {
+                        statusKey = 'expired';
+                    } else if (paStatusText.includes('Expiring')) {
+                        statusKey = 'expiring';
+                    } else if (paStatusText.includes('Valid')) {
+                        statusKey = 'valid';
+                    }
+
+                    matchesStatus = statusKey ? selectedStatuses.includes(statusKey) : false;
                 }
 
                 const categories = cells[4].textContent;
-                let matchesCategory = categoryFilter === 'all' || categories.includes(categoryFilter);
+                const matchesCategory = categoryFilter === 'all' || categories.includes(categoryFilter);
 
-                rows[i].style.display = matchesSearch && matchesStatus && matchesCategory ? '' : 'none';
+                rows[i].style.display = (matchesSearch && matchesStatus && matchesCategory) ? '' : 'none';
                 if (matchesSearch && matchesStatus && matchesCategory) visibleCount++;
             }
 
             document.getElementById('paRowCount').textContent = `Showing ${visibleCount} clients`;
         }
 
-        function clearPAFilters() {
-            document.getElementById('paStatusFilter').value = 'all';
+
+                function clearPAFilters() {
+            clearPAStatusPills();
             document.getElementById('paCategoryFilter').value = 'all';
             document.getElementById('paFundingFilter').value = 'all';
             document.getElementById('paSearchInput').value = '';
             filterPATable();
         }
+
 
         function sortPATable(columnIndex) {
             const table = document.getElementById('paTable');
